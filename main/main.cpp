@@ -2,53 +2,29 @@
 #include "fonts.h"
 #include "ssd1306.hpp"
 #include "driver/gpio.h"
-#include "driver/adc.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include <cstdio>
-#include <string>
-#include <sstream>
-#include <iostream>
+#include <stdio.h>
+#include "sdkconfig.h"
 using namespace std;
 
-OLED oled = OLED(GPIO_NUM_19, GPIO_NUM_22, SSD1306_128x64);
+
+
+#define VCC_GPIO GPIO_NUM_5
+#define GND_GPIO GPIO_NUM_17
+#define SCK_GPIO GPIO_NUM_22
+#define SDA_GPIO GPIO_NUM_21
+
+OLED oled = OLED(SCK_GPIO, SDA_GPIO, SSD1306_128x64);
 
 void myTask(void *pvParameters) {
-	adc1_config_width(ADC_WIDTH_12Bit);
-	adc1_config_channel_atten(ADC1_CHANNEL_4, ADC_ATTEN_0db);
 
-	ostringstream os;
-//	char *data = (char*) malloc(32);
-	uint16_t graph[128];
-	memset(graph, 0, sizeof(graph));
-//	for(uint8_t i=0;i<64;i++){
-//		oled.clear();
-//		oled.draw_hline(0, i, 100, WHITE);
-//		sprintf(data,"%d",i);
-//		oled.draw_string(105, 10, string(data), BLACK, WHITE);
-//		oled.refresh(false);
-//		vTaskDelay(1000 / portTICK_PERIOD_MS);
-//	}
 	while (1) {
-		os.str("");
-		os << "ADC_CH4(GPIO32):" << adc1_get_voltage(ADC1_CHANNEL_4);
-		for (int i = 0; i < 127; i++) {
-			graph[i] = graph[i + 1];
-		}
-		graph[127] = adc1_get_voltage(ADC1_CHANNEL_4);
+
 		oled.clear();
-//		sprintf(data, "01");
-//		oled.select_font(2);
-//		oled.draw_string(0, 0, string(data), WHITE, BLACK);
-//		sprintf(data, ":%d", graph[127]);
-		oled.select_font(1);
-		oled.draw_string(0, 0, os.str(), WHITE, BLACK);
-//		oled.draw_string(33, 4, string(data), WHITE, BLACK);
-		graph[127] = graph[127] * 48 / 4096;
-		for (uint8_t i = 0; i < 128; i++) {
-			oled.draw_pixel(i, 63 - graph[i], WHITE);
-		}
-		oled.draw_pixel(127, 63 - graph[127], WHITE);
+		oled.select_font(2);
+		oled.draw_string(0, 0, "Test", WHITE, BLACK);
+
 		oled.refresh(true);
 		vTaskDelay(500 / portTICK_PERIOD_MS);
 	}
@@ -60,7 +36,23 @@ extern "C" {
 #endif
 void app_main() {
 
-	oled = OLED(GPIO_NUM_19, GPIO_NUM_22, SSD1306_128x64);
+	/* Configure the IOMUX register for pad BLINK_GPIO (some pads are
+	   muxed to GPIO on reset already, but some default to other
+	   functions and need to be switched to GPIO. Consult the
+	   Technical Reference for a list of pads and their default
+	   functions.)
+	*/
+	gpio_pad_select_gpio(VCC_GPIO);
+	gpio_pad_select_gpio(GND_GPIO);
+	/* Set the GPIO as a push/pull output */
+	gpio_set_direction(VCC_GPIO, GPIO_MODE_OUTPUT);
+	gpio_set_direction(GND_GPIO, GPIO_MODE_OUTPUT);
+	/* Set the GPIO to VCC / GND */
+	gpio_set_level(VCC_GPIO, 1);
+	gpio_set_level(GND_GPIO, 0);
+
+
+	oled = OLED(SCK_GPIO, SDA_GPIO, SSD1306_128x64);
 	if (oled.init()) {
 		ESP_LOGI("OLED", "oled inited");
 //		oled.draw_rectangle(10, 30, 20, 20, WHITE);
